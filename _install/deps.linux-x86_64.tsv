@@ -1,0 +1,52 @@
+#	lsv2 dependency manifest -- target: Linux x86_64 with conda-forge, 2026-10-18
+#
+#	Tab-separated. Read and executed by conda.sh, which lives next to this file.
+#	Lines starting with '#' are comments. Lines starting with '#!' are metadata
+#	parsed by the script (they are NOT comments to the script).
+#
+#	To target a different machine: copy this file to deps.<host>.tsv, edit the
+#	#!target line and the affected rows, then run
+#	    ./conda.sh deps.<host>.tsv
+#	No change to conda.sh should ever be needed to support a new host.
+#
+#	=========================================================================
+#	COLUMNS
+#	=========================================================================
+#	  stage      install order group; stages run in ascending order. Rows in
+#	             the same stage sharing installer+source+flags+required are
+#	             merged into ONE command so they resolve together.
+#	  package    distribution name as the installer knows it
+#	  version    'latest' | exact ('25.0.0') | range ('>=2.7')
+#	             Ignored when the source names an artifact outright (direct=,
+#	             git=, local=) -- the path or URL already pins it.
+#	  arch       platform tag this row was VALIDATED on. Documentation, not a
+#	             filter.
+#	  installer  'conda' | 'pip'
+#	  source     where the package comes from:
+#	               pip:   pypi | index=<url> | extra=<url> | links=<url> | direct=<url> | git=<url>@<ref> | local=<path>
+#	               conda: channel=<a>[,<b>] | nodefaults      (';'-separated, combine freely)
+#	  flags      extra installer flags, '-' for none
+#	  required   'yes' aborts on failure, 'no' warns and continues
+#	  note       why this row exists / why this pin
+#
+#	Versions below are the ones the 2026-10-17/18 validation ran on (conda list
+#	of the environment that produced the first dataset). Everything comes from
+#	conda-forge so that ffmpeg, x264 and PyAV are built against each other.
+#
+#!target	os=linux	arch=x86_64	sm=-	cuda=-	python=3.14.8	gpu=-
+#!envname	lsv2
+#!repo	https://github.com/LCAD-UFES/lidar_sweep_viewer
+
+stage	package	version	arch	installer	source	flags	required	note
+00-env	python	3.14.8	any	conda	channel=conda-forge	-	yes	What the validation ran on. Anything >= 3.12 should do (pyproject says so); re-validate if changed.
+10-core	numpy	2.5.4	linux-x86_64	conda	channel=conda-forge	-	yes	Range image arrays and the render formula (lsv2/render.py).
+10-core	pyarrow	25.0.0	linux-x86_64	conda	channel=conda-forge	-	yes	Reads the Waymo v2 parquet lidar component (lsv2/reader.py). Replaces TensorFlow and the official waymo-open-dataset package, which only ships x86_64 wheels.
+10-core	av	19.0.1	linux-x86_64	conda	channel=conda-forge	-	yes	PyAV: decodes clips back for the bit-exact check (lsv2/encoder.py); the same library MAE-ST reads the dataset with.
+10-core	ffmpeg	9.0.2	linux-x86_64	conda	channel=conda-forge	-	yes	Encoder (lsv2/encoder.py). conda-forge's default build is 'gpl' and includes libx264, which both profiles need; verify() checks libx264 and the gray pix_fmt.
+10-core	google-cloud-storage	3.17.0	any	conda	channel=conda-forge	-	yes	Lists and downloads segments from the Waymo bucket (lsv2/source/gcs.py).
+10-core	google-auth	2.62.0	any	conda	channel=conda-forge	-	yes	Loads the user-supplied credentials file (ADC or service account).
+10-core	pillow	12.3.0	linux-x86_64	conda	channel=conda-forge	-	no	Only tests/test_oracle.py reads the legacy PNGs with it. Not needed to run.
+20-tools	google-cloud-sdk	589.0.0	linux-x86_64	conda	channel=conda-forge	-	yes	Provides 'gcloud auth application-default login', the one-time step that writes the credentials file lsv2 consumes. 122 MB; the only reason it is here.
+20-tools	tmux	latest	linux-x86_64	conda	channel=conda-forge	-	no	For long runs over SSH (README). Not a dependency.
+20-tools	pyinstaller	6.22.3	linux-x86_64	conda	channel=conda-forge	-	no	Only to build the self-contained executable with _bundle/build.sh. Not a dependency.
+30-lsv2	lsv2	-	any	pip	local=..	-e	yes	The pipeline itself, editable, from the repository root (this file lives in <repo>/_install). Run conda.sh from <repo>/_install.

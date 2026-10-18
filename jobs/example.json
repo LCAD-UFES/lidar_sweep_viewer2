@@ -1,0 +1,21 @@
+{
+  "segments": "segments.txt",
+  "cache_dir": "$LSV2_CACHE_DIR",
+  "cache_budget_bytes": 2000000000,
+  "output_dir": "$LSV2_OUTPUT_DIR/example",
+  "source": {
+    "type": "gcs",
+    "bucket": "waymo_open_dataset_v_2_0_1",
+    "component": "lidar",
+    "credentials": "~/.config/gcloud/application_default_credentials.json"
+  },
+  "cpu_workers": 2,
+  "memory_budget_bytes": 4000000000,
+  "gpu_budget": 0,
+  "profile": "lossless",
+  "verify_lossless": true,
+  "download_parallel": 1,
+  "clip_frames": 22,
+  "fps": 10,
+  "prefix": ""
+}
