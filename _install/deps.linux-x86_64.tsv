@@ -49,4 +49,6 @@ stage	package	version	arch	installer	source	flags	required	note
 20-tools	google-cloud-sdk	589.0.0	linux-x86_64	conda	channel=conda-forge	-	yes	Provides 'gcloud auth application-default login', the one-time step that writes the credentials file lsv2 consumes. 122 MB; the only reason it is here.
 20-tools	tmux	latest	linux-x86_64	conda	channel=conda-forge	-	no	For long runs over SSH (README). Not a dependency.
 20-tools	pyinstaller	6.22.3	linux-x86_64	conda	channel=conda-forge	-	no	Only to build the self-contained executable with _bundle/build.sh. Not a dependency.
+20-tools	basedpyright	1.40.2	linux-x86_64	conda	channel=conda-forge	-	no	Type checker; the repository's bar is zero diagnostics in the mode pinned in pyproject.toml. Development only.
+20-tools	pyarrow-stubs	20.0.0.20260819	any	conda	channel=conda-forge	-	no	Type stubs for pyarrow, used by basedpyright only. Development only.
 30-lsv2	lsv2	-	any	pip	local=..	-e	yes	The pipeline itself, editable, from the repository root (this file lives in <repo>/_install). Run conda.sh from <repo>/_install.

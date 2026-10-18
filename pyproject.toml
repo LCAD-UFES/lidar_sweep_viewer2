@@ -14,3 +14,11 @@ lsv2 = "lsv2.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["lsv2*"]
+
+[tool.basedpyright]
+# The bar for this repository: `basedpyright` reports nothing in the editor's default mode.
+typeCheckingMode = "recommended"
+pythonVersion = "3.12"
+include = ["lsv2", "tests", "_bundle"]
+reportMissingTypeStubs = false     # google-cloud-storage ships no stubs; its types are inferred from source and cast at the boundary
+reportUnusedCallResult = false     # stdlib calls like os.replace and csv.writerow return values nobody reads

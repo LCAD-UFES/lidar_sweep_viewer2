@@ -10,14 +10,16 @@ lidar_sweep_viewer2/
   lsv2/
     cli.py                argparse: `plan` and `run`
     config.py             Job dataclass (every job key, defaults), domain constants, load_job() with validation
-    planner.py            make_plan(), estimate(), calibrate(), format_plan(), save_plan()/load_plan()
-    runner.py             run(): the orchestrator; process_segment(): the worker; write_index()
-    source/__init__.py    Source interface, cache_path(), available(), make_source() registry
+    jsonio.py             from_dict(): the JSON boundary; checks every value against the dataclass annotation
+    planner.py            Segment, Calibration, Plan, Estimate, Measurement dataclasses; make_plan(), estimate(), calibrate(), format_plan(), save_plan()/load_plan()
+    runner.py             Result dataclass; run(): the orchestrator; process_segment(): the worker; write_index()
+    source/base.py        Source abstract interface, cache_path(), available()
+    source/__init__.py    make_source() registry
     source/gcs.py         GcsSource: Waymo bucket via google-cloud-storage
     reader.py             top_range_frames(): parquet -> [(timestamp, range float32 [64, 2650])]
     render.py             render(): the lsv1 grey formula
     encoder.py            PROFILES, encode() (raw grey -> ffmpeg -> mp4), decode() (mp4 -> luma), ffmpeg_path()
-    state.py              load()/save()/update(): one JSON per segment, atomic
+    state.py              State dataclass; load()/save()/update(): one JSON per segment, atomic
   tests/                  unittest: test_render, test_encoder, test_oracle (needs LSV2_ORACLE_PNG/PARQUET)
   jobs/                   example.json, segments.txt
   _install/               conda.sh + deps.<host>.tsv: manifest-driven installer
@@ -44,21 +46,25 @@ plan.json ──run──▶ main loop (one thread)
 out/<id>_<clip>.mp4, out/index.csv, out/state/<id>.json
 ```
 
-What depends on what: `cli` -> `config`, `planner`, `runner`; `planner` -> `config`, `source`; `runner` -> `source`, `reader`, `render`, `encoder`, `state`, `planner`; `config` -> `encoder` (profile names); `reader`, `render`, `source/gcs` -> `config` (constants). `encoder`, `state` and the `source` interface import nothing from the package, and `reader`, `render`, `encoder`, `state` do not import each other, so each can be tested alone.
+What depends on what: `cli` -> `config`, `planner`, `runner`; `planner` -> `config`, `source`, `jsonio`; `runner` -> `source`, `reader`, `render`, `encoder`, `state`, `planner`, `jsonio`; `config` -> `encoder` (profile names), `jsonio`; `state` -> `jsonio`; `reader`, `render`, `source/gcs` -> `config` (constants). `encoder`, `jsonio` and `source/base` import nothing from the package, and `reader`, `render`, `encoder`, `state` do not import each other, so each can be tested alone.
+
+Everything that crosses the JSON boundary (job file, plan file, state files) is a dataclass rebuilt with `jsonio.from_dict`, which validates each field against its annotation and names the offending key on failure. No `Any` survives past that boundary; the only untyped library, google-cloud-storage, is cast inside `source/gcs.py`.
 
 Run the tests with `python -m unittest discover -s tests -v`. The oracle test is the acceptance test for anything touching `reader.py` or `render.py`; the encoder round-trip test is the one for `encoder.py`.
 
+The type-checking bar is `basedpyright` reporting nothing, in the `recommended` mode pinned in `pyproject.toml` (`[tool.basedpyright]`); `basedpyright` and `pyarrow-stubs` are optional rows of the manifest. Two rules are disabled there with their reason; file-level pragmas exist only in `source/gcs.py` and `reader.py`, where the libraries' own types stop, and each says why.
+
 ## Adding a segment source
 
-A source is a class in `lsv2/source/` implementing the interface in `lsv2/source/__init__.py`:
+A source is a class in `lsv2/source/` implementing the abstract interface in `lsv2/source/base.py`:
 
 | method | contract |
 |---|---|
 | `resolve(segment_id) -> (object, size)` | `object` is a provenance string naming where the file comes from (it is written to `index.csv`); `size` is the exact byte count. Raise `FileNotFoundError` if the segment does not exist |
 | `fetch(object, dst)` | make `dst` complete, atomically: write to `dst + ".part"` and rename. Resumability across runs comes from the pipeline comparing the file size to `size`, so a partial file is simply fetched again |
-| `frames(object) -> int or None` | optional; the frame count without fetching, when the source can tell cheaply. `None` makes the planner use an average |
+| `frames(object) -> int or None` | the frame count without fetching, when the source can tell cheaply; return `None` when it cannot and the planner uses an average |
 
-The constructor receives every key of the job's `source` object except `type`, as keyword arguments. Register the class in `make_source` under a new `type` name. Nothing else changes: the planner, the cache budget, the workers and the encoder only see the cache directory and the `(object, size)` pairs. Use `source/gcs.py` as the model; it is 30 lines.
+The constructor receives every key of the job's `source` object except `type`, as keyword arguments. Register the class in `make_source` (`lsv2/source/__init__.py`) under a new `type` name. Nothing else changes: the planner, the cache budget, the workers and the encoder only see the cache directory and the `(object, size)` pairs. Use `source/gcs.py` as the model; it is 30 lines.
 
 Candidates: a local mirror directory (`resolve` stats the file, `fetch` copies or hard-links); an offline cache-only source (`resolve` stats the cache itself, `fetch` is a no-op, for machines without bucket access); Perception v1 tfrecords (needs a TensorFlow-free reader: the TOP range image is a zlib-compressed `MatrixFloat` inside each `Frame` proto, and the file is ~1 GB per segment).
 
@@ -68,6 +74,7 @@ Candidates: a local mirror directory (`resolve` stats the file, `fetch` copies o
 - Repository content names no person and no machine; the first-generation pipeline is "lsv1".
 - Installers are manifest-driven: a new machine gets a new `_install/deps.<host>.tsv`, never an edited `conda.sh`.
 - Comments record provenance of formulas and constants, not what the code does. Domain constants are computed (`75 * 100 / 256`), not pasted.
+- Every function is annotated; data that crosses a process or file boundary is a dataclass. A change must leave `basedpyright` silent.
 - README paragraphs are single lines; line breaks separate paragraphs only.
 
 ## Provenance and validation
