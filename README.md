@@ -27,7 +27,7 @@ python -m unittest discover -s tests -v
 
 ### Self-contained executable
 
-`_bundle/build.sh` builds a single ~190 MB file, `dist/lsv2`, with Python, every library and `ffmpeg` inside (PyInstaller; `pyinstaller` is an optional row of the manifest). It runs on the platform it was built on with no conda, no PATH and no installation, and it produces the same clips as the environment install. Credentials are still yours to supply.
+`_bundle/build.sh` builds a single ~190 MB file, `build/dist/lsv2` (or `<dir>/dist/lsv2` when a directory is given), with Python, every library and `ffmpeg` inside (PyInstaller; `pyinstaller` is an optional row of the manifest). It runs on the platform it was built on with no conda, no PATH and no installation, and it produces the same clips as the environment install. Copy that one file wherever you like; in every command below, `lsv2` then means its path, or put it on your PATH. Credentials are still yours to supply, and the executable does not include `gcloud` (see "Credentials").
 
 # Input datasets
 
@@ -52,7 +52,7 @@ Downloads, at run time, the Perception v2 `lidar` parquet of each segment from G
 | `component` | the v2 component to fetch; default `lidar`, the only one `lsv2` reads |
 | `credentials` | path to the credentials JSON (required) |
 
-**Credentials.** `lsv2` never logs in by itself; it only consumes a credentials file. Produce it once, on any machine, with the account that holds the Waymo license:
+**Credentials.** `lsv2` never logs in by itself; it only consumes a credentials file. Produce it once, on any machine, with the account that holds the Waymo license. The conda environment brings `gcloud` through the manifest; with the executable, install the Google Cloud CLI by any means or produce the file on another machine and copy it over:
 
 ```sh
 gcloud auth application-default login     # gcloud comes with the manifest (google-cloud-sdk)
@@ -68,7 +68,7 @@ This writes `~/.config/gcloud/application_default_credentials.json`; the "quota 
 
 # Run
 
-Provided you already have a .json file describing a conversion job, you can proceed to execute this job with the `lsv2` command. First, activate your prepared conda environment. If you prefer to use a built executable, skip this step.
+Provided you already have a .json file describing a conversion job, you can proceed to execute this job with the `lsv2` command. First, activate your prepared conda environment. If you prefer the built executable, skip this step and read `lsv2` below as the path to that file (for example `./build/dist/lsv2`), unless you put it on your PATH.
 
 ```sh
 conda activate lsv2
@@ -81,7 +81,7 @@ lsv2 plan job.json -o plan.json    # resolves every segment at the source (exact
 ```
 
 
-This will convert the declarative job file to data readily usable by the run function, saving it to the `plan.json` file. It will print out the plan file and ask for confirmation. 
+This resolves the declarative job file into a plan the run step executes, saved as `plan.json`, and prints it: exact sizes, frame counts, how many downloads fit the cache and the time estimate. Nothing is downloaded and nothing is asked. Review it, then run it; `run` prints the plan again and asks for confirmation once.
 
 ```sh
 lsv2 run plan.json                 # prints the plan, asks once, runs; --yes skips the question (tmux)
@@ -89,7 +89,7 @@ lsv2 run plan.json                 # prints the plan, asks once, runs; --yes ski
 
 ## How to write a job file
 
-Write a job file; `jobs/example.json` shows every key with the defaults, on the 8 segments of `jobs/segments.txt`. Paths may use `~` and `$VARS`; relative paths are relative to the job file. Keys:
+`jobs/example.json` shows every key with the defaults, on the 8 segments of `jobs/segments.txt`. Paths may use `~` and `$VARS`; relative paths are relative to the job file. Keys:
 
 | key | meaning |
 |---|---|
