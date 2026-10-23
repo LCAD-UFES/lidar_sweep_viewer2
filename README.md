@@ -68,6 +68,27 @@ This writes `~/.config/gcloud/application_default_credentials.json`; the "quota 
 
 # Run
 
+Provided you already have a .json file describing a conversion job, you can proceed to execute this job with the `lsv2` command. First, activate your prepared conda environment. If you prefer to use a built executable, skip this step.
+
+```sh
+conda activate lsv2
+```
+
+Next, instruct lsv2 to plan out the conversion from your job file.
+
+```sh
+lsv2 plan job.json -o plan.json    # resolves every segment at the source (exact sizes, frame counts); downloads nothing
+```
+
+
+This will convert the declarative job file to data readily usable by the run function, saving it to the `plan.json` file. It will print out the plan file and ask for confirmation. 
+
+```sh
+lsv2 run plan.json                 # prints the plan, asks once, runs; --yes skips the question (tmux)
+```
+
+## How to write a job file
+
 Write a job file; `jobs/example.json` shows every key with the defaults, on the 8 segments of `jobs/segments.txt`. Paths may use `~` and `$VARS`; relative paths are relative to the job file. Keys:
 
 | key | meaning |
@@ -84,10 +105,6 @@ Write a job file; `jobs/example.json` shows every key with the defaults, on the 
 | `clip_frames`, `fps` | frames per clip and frame rate (defaults 22 and 10, the lsv1 reference dataset). The frame size, 2650x64, is the Waymo TOP range image and is not a parameter; the grey mapping is the lsv1 formula and is not a parameter either |
 | `prefix` | prepended to every video name: `train` gives `train_<segment>_<clip>.mp4` (default empty). Jobs with different prefixes and disjoint segments may share an `output_dir`; `index.csv` then lists all of them, which is how train/val/test slices are kept in one folder for the ML side's csvs |
 
-```sh
-lsv2 plan job.json -o plan.json    # resolves every segment at the source (exact sizes, frame counts); downloads nothing
-lsv2 run plan.json                 # prints the plan, asks once, runs; --yes skips the question (tmux)
-```
 
 `run` downloads the first segment alone, then keeps one download in flight while workers process what has arrived; a download starts only when its size fits the free cache budget, and a segment is deleted from the cache as soon as its clips are written (only if `lsv2` downloaded it). After the first segment the plan is re-printed with measured throughput, seconds per segment, peak worker memory and bytes per clip. The run is resumable: `state/<segment>.json` records every step, and a restarted `run` skips finished segments. For long runs use `tmux` and `tee`.
 
